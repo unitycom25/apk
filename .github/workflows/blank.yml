@@ -1,44 +1,53 @@
-name: Android Build
+name: Build Android APK
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+on: [push]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-      
-    - name: Set up JDK 17
-      uses: actions/setup-java@v3
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+    - uses: actions/checkout@v2
+    
+    - name: Build APK
+      run: |
+        # Создаем минимальные файлы если их нет
+        if [ ! -f "app/build.gradle" ]; then
+          echo "Creating build.gradle..."
+          mkdir -p app
+          echo 'plugins {
+            id "com.android.application"
+          }
+          android {
+            compileSdk 34
+            defaultConfig {
+              applicationId "com.protivost.game"
+              minSdk 21
+              targetSdk 34
+              versionCode 1
+              versionName "1.0"
+            }
+            buildTypes {
+              release {
+                minifyEnabled false
+              }
+            }
+          }
+          dependencies {
+            implementation "androidx.appcompat:appcompat:1.6.1"
+          }' > app/build.gradle
+        fi
         
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v2
-      
-    - name: Make gradlew executable
-      run: chmod +x ./gradlew
-      
-    - name: Build with Gradle
-      run: ./gradlew assembleDebug
-      
+        # Скачиваем Gradle
+        wget https://services.gradle.org/distributions/gradle-8.0-bin.zip
+        unzip gradle-8.0-bin.zip
+        export PATH=$PATH:$(pwd)/gradle-8.0/bin
+        
+        # Собираем APK
+        gradle assembleDebug
+        
     - name: Upload APK
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
-        name: app-debug
-        path: app/build/outputs/apk/debug/app-debug.apk
-        
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      if: github.ref == 'refs/heads/main'
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./app/build/outputs/apk/debug
-        destination_dir: ./
+        name: protivost-app
+        path: app/build/outputs/apk/debug/*.apk
